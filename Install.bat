@@ -1,0 +1,1 @@
+python -m venv venv && venv\Scripts\activate.bat && pip install -r req.txt && venv\Scripts\deactivate.bat

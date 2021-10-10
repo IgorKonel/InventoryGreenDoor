@@ -1,17 +1,27 @@
-"""Библиотека для получения расположения файла"""
-import os
+import os  # Для открытия Excel файла в конце работы
 
-import creds  # Импорт библиотеки, содержащей API key
+import variables
 
-from googleapiclient.discovery import build  # Библиотеки для работы google sheets API
+from windows.window import get_window  # Импорт файла с функцией создания окна
+
+import json  # Для базы данных
+
+from creds import api_key  # Импорт из пакета API key
+
+from googleapiclient.discovery import build  # Библиотеки для работы Google Sheets API
 
 import openpyxl  # Библиотека для работы с Excel
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Font, Alignment  # Шрифты и расположение текста
+
+from datetime import datetime as dt  # Работа с месяцами для проверки нужно ли обновить ссылку
 
 NAME_LIST = "Invent WD/ZD"
 
 
 def print_list(list_resp, str_resp):
+    """
+        Ввывод
+    """
     print(f'\n{str_resp} \n')
     for pos, num in list_resp:
         print(f'{pos:<60} {num:>8}')
@@ -20,23 +30,10 @@ def print_list(list_resp, str_resp):
 def print_dict_list(list_resp, str_resp):
     print(f'\n{str_resp} \n')
     for pos in list_resp:
-        print(f'{pos[0]:<60} {pos[1]:<9} {pos[2]:<11} {pos[3]:>3}')
-
-
-# def get_service_sacc():
-#     """
-#     Чтение таблиц, к которым выдан доступ
-#
-#     godinventory@inventory-328117.iam.gserviceaccount.com
-#
-#     :return:
-#     """
-#     creds_json = os.path.dirname(__file__) + "/creds/sacc1.json"
-#     print(creds_json)
-#     scopes = ['https://www.googleapis.com/auth/spreadsheets']
-#
-#     creds_service = ServiceAccountCredentials.from_json_keyfile_name(creds_json, scopes).authorize(httplib2.Http())
-#     return build('sheets', 'v4', http=creds_service)
+        if len(pos) == 4:
+            print(f'{pos[0]:<60} {pos[1]:<9} {pos[2]:<11} {pos[3]:>3}')
+        elif len(pos) == 2:
+            print(f'{pos[0]:<60} {pos[1]:<9}')
 
 
 def get_service_simple():
@@ -44,18 +41,11 @@ def get_service_simple():
     Чтение таблиц без возможности их редактирования
     :return:
     """
-    return build('sheets', 'v4', developerKey=creds.api_key)
-
-
-def get_resp_several(range_list):
-    path = NAME_LIST + '!' + range_list
-    # print('path = \'', path, '\'',  sep='')
-    return sheet.values().get(spreadsheetId=sheet_id, range=path).execute()  # ['valueRanges'][0]['values']
+    return build('sheets', 'v4', developerKey=api_key)
 
 
 def get_resp(range_list):
     path = NAME_LIST + '!' + range_list
-    # print('path =', path)
     return sheet.values().batchGet(spreadsheetId=sheet_id, ranges=[path]).execute()['valueRanges'][0]['values']
 
 
@@ -64,11 +54,47 @@ def get_list_order(range_list):
 
 
 service = get_service_simple()  # С использованием API
-# service = get_service_sacc()  # С использованием OAuth 2.0 Client IDs
 sheet = service.spreadsheets()
 
-# TODO: Сделать возможность вставлять ID в оконном приложении
-sheet_id = '13nzuCdZrcOaQMBqTKMJOzehQOff97ixVoR5opfBfBjM'
+"""
+************************************************************************************************************************
+                                        Проверка на актуальность таблицы
+************************************************************************************************************************
+"""
+
+# Открываем файл, в котором хранятся данные о номере месяца последнего изменения и id таблицы
+with open('data.json') as json_file:
+    data = json.load(json_file)
+
+    # Данные из файла
+    print('Текущие данные:')
+    print(f'month : {data["month"]}')  # Номер месяца
+    print(f'sheet_id : {data["sheet_id"]}')  # Id таблицы
+
+    month_current = dt.now().month  # Текущий месяц
+
+    # Сравниваем на неравенство текущий месяц и с последнего изменения
+    if data["month"] != month_current:
+
+        get_window()  # Запускаем окно из файла windows.window.py
+        # Здесь мы получаем новое значение для variables.SHEET_ID
+
+        # TODO: Сделать обработку строки, чтобы из ссылки получалось id таблицы
+        sheet_id = variables.SHEET_ID
+        sheet_id = sheet_id[39:]
+        sheet_id = sheet_id[:sheet_id.index('/')]
+
+        data['month'] = month_current  # Заносим новые данные в словарь
+        data['sheet_id'] = sheet_id
+
+        with open('data.json', 'w') as outfile:
+            json.dump(data, outfile)  # Запись словаря в JSON-file
+    else:
+        sheet_id = data["sheet_id"]  # Подгружаем sheet_id из JSON
+
+    print('Данные для работы:')
+    print(f'sheet_id now : {sheet_id}')  # Контрольный вывод id таблицы
+    print(f'month : {month_current}')  # Контрольный вывод номера месяца, когда было последнее изменение
 
 """
 ************************************************************************************************************************
@@ -76,34 +102,58 @@ sheet_id = '13nzuCdZrcOaQMBqTKMJOzehQOff97ixVoR5opfBfBjM'
 ************************************************************************************************************************
 """
 
-""" 
-------------------------------------------------------------------------------------------------------------------------
-                                                 Для одного диапазона
-------------------------------------------------------------------------------------------------------------------------
-"""
-# TODO:
+# Получаем списки:
 resp_house = get_resp('AP5:AQ48')  # Хоз-товары на всех
 resp_tea = get_resp('AP49:AQ85')  # Чаи на всех
 resp_art_count = get_resp('B5:C48')  # Артикулы и кол-во
 
+# Wooden Door
+resp_wd_pos = get_resp('AP5:AP85')
+order_wd = get_resp('AR5:AR85')
+order_wdl = get_resp('AS5:AS85')
+
+"""
+************************************************************************************************************************
+                                             Редактирование списков
+************************************************************************************************************************
+"""
+
+# Хоз-товары
 for i in range(len(resp_house)):
-    resp_house[i].insert(1, resp_art_count[i][0])
-    resp_house[i].insert(2, resp_art_count[i][1])
+    resp_house[i].insert(1, resp_art_count[i][0])  # Вставляем артикулы
+    resp_house[i].insert(2, resp_art_count[i][1])  # Вставляем Шт\Уп
+
+# Добавляем
+for i in range(len(resp_wd_pos)):
+    order_wd[i].insert(0, resp_wd_pos[i][0])
+    order_wdl[i].insert(0, resp_wd_pos[i][0])
+
+print_list(order_wd, 'Лубянка')
+
+
 
 # print_list(resp_house, 'Список общих хоз-товаров:')
 # print_list(resp_tea, 'Список общих чаёв:')
 # print_list(resp_art_count, 'Список артикулов и кол-ва')
 
 # TODO:
+# Формируем конечные списки на закупку
+
+# Убираем позиции с нулевым значением с помощью функции get_list_order
+
+# Общие
 order_house = get_list_order(resp_house)
 order_tea = get_list_order(resp_tea)
-# print_dict_list(order_house, 'Хозы на заказ:')
-# print_list(order_tea, 'Чай на заказ:')
 
-# resp_double = sheet.values().batchGet(spreadsheetId=sheet_id, ranges=["Invent WD/ZD!AP49:AP70",
-# "Invent WD/ZD!AR49:AR70"]).execute()['valueRanges'][0]  #[0]['values']
+# Wooden Door
+order_wd = get_list_order(order_wd)
+order_wdl = get_list_order(order_wdl)
 
-# resp = sheet.values().get(spreadsheetId=sheet_id, range="Invent WD/ZD!AP5:AQ85").execute()
+"""
+************************************************************************************************************************
+                                                    Работа с Excel
+************************************************************************************************************************
+"""
 
 # создаем новый excel-файл
 wb = openpyxl.Workbook()
@@ -150,6 +200,35 @@ for row in range(count, len(order_tea)+count):
             sheet.cell(row=row, column=col).alignment = Alignment(horizontal='center')
         else:
             sheet.cell(row=row, column=col).value = order_tea[row-count][col-1]
+count += len(order_tea) + 2
+
+# Список что отдать Лубянке
+sheet.cell(row=count, column=1).value = 'Отдать Лубянке:'
+sheet.cell(row=count, column=1).font = Font(size=25)
+count += 2
+
+for row in range(count, len(order_wd)+count):
+    for col in range(1, 3):
+        if col == 2:
+            sheet.cell(row=row, column=col).value = int(order_wd[row - count][col - 1])
+            sheet.cell(row=row, column=col).alignment = Alignment(horizontal='center')
+        else:
+            sheet.cell(row=row, column=col).value = order_wd[row-count][col-1]
+count += len(order_wd) + 2
+
+# Список что отдать Сухарю
+sheet.cell(row=count, column=1).value = 'Отдать Сухарю:'
+sheet.cell(row=count, column=1).font = Font(size=25)
+count += 2
+
+for row in range(count, len(order_wdl)+count):
+    for col in range(1, 3):
+        if col == 2:
+            sheet.cell(row=row, column=col).value = int(order_wdl[row - count][col - 1])
+            sheet.cell(row=row, column=col).alignment = Alignment(horizontal='center')
+        else:
+            sheet.cell(row=row, column=col).value = order_wdl[row-count][col-1]
+count += len(order_wdl) + 2
 
 
 #  Сохранение в файл

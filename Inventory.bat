@@ -1,3 +1,3 @@
-cd venv\Scripts & activate.bat & cd ../../ & python main.py
+venv\Scripts\activate.bat & python main.py
 
 
