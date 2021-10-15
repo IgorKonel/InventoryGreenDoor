@@ -1,6 +1,9 @@
 from tkinter import *
 
+
 import variables
+
+global SHEET_ID
 
 
 def get_window():

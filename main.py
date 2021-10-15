@@ -20,7 +20,7 @@ NAME_LIST = "Invent WD/ZD"
 
 def print_list(list_resp, str_resp):
     """
-        Ввывод
+        Вывод
     """
     print(f'\n{str_resp} \n')
     for pos, num in list_resp:
@@ -81,6 +81,7 @@ with open('data.json') as json_file:
 
         # TODO: Сделать обработку строки, чтобы из ссылки получалось id таблицы
         sheet_id = variables.SHEET_ID
+        print(variables.SHEET_ID)
         sheet_id = sheet_id[39:]
         sheet_id = sheet_id[:sheet_id.index('/')]
 
@@ -130,8 +131,6 @@ for i in range(len(resp_wd_pos)):
 
 print_list(order_wd, 'Лубянка')
 
-
-
 # print_list(resp_house, 'Список общих хоз-товаров:')
 # print_list(resp_tea, 'Список общих чаёв:')
 # print_list(resp_art_count, 'Список артикулов и кол-ва')
@@ -165,7 +164,7 @@ wb.create_sheet(title='Инвентаризация', index=0)
 sheet = wb['Инвентаризация']
 
 #  Подгоняем по ширине столбцы
-sheet.column_dimensions['A'].width = 65
+sheet.column_dimensions['A'].width = 50
 sheet.column_dimensions['B'].width = 11
 sheet.column_dimensions['C'].width = 14
 sheet.column_dimensions['D'].width = 5
